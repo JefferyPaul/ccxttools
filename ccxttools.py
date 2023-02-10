@@ -555,7 +555,6 @@ def get_open_orders(api_name):
     _data: List[TradingOrder] = CcxtTools.fetch_open_orders_to_simple(l)
 
 
-
 # ==========================   计算
 
 # [5] 计算对冲
@@ -652,7 +651,4 @@ def cal_target_positions_to_order(api_name, targets: List[SimplePosition]) -> Li
 
 
 # ===========================================
-
-
-# os.system('pause')
 
