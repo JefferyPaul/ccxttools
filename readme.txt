@@ -1,3 +1,17 @@
+=====     =====     =====     =====     config     =====     =====     =====     =====
+一个账号一个文件夹
+\Config\Config.json
+    {
+        "name": "",
+        "apiKey": "",
+        "secret": "",
+        "BaseCurrency": "BUSD"
+    }
+\Config\CoinContractSpotMapping.csv
+    用于计算对冲时，匹配标的
+    CoinM持仓币,Spot标的,USDM对冲合约
+
+
 =====     =====     =====     =====     =====     =====     =====     =====     =====
 cal_target_holding_coin.py
 计算 未在USDM账户中对冲的 CoinM账户的盈亏，并生成订单。
@@ -49,6 +63,17 @@ cancel_order.py
 =====     =====     =====     =====     查询     =====     =====     =====     =====
 fetch_account_commonly_used_data.py
 查询常用数据
+    输入文件：
+        \Config\CoinMapping.csv，可以不存在此文件，如果存在则读取。
+        用于计算账户总净资产。
+        计算是只参考3个标的的价格：USDT / BTC / ETH，但是有一些小品种，需要特定指定。
+        例如：
+            BUSD=USDT
+            ETHW=0, 代表不计算
+        eg:
+            BUSD,USDT,
+            LDBUSD,USDT,
+            ETHW,0,
     输出：
         \Output\AccountData\
 

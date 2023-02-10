@@ -475,11 +475,22 @@ def get_newest_price(output_file=None) -> dict:
 
 # [3] 计算账户净资产价值， 分 USD BTC ETH，分别计价
 def cal_total_balance(d_balance, d_price, output_file=None):
-    ticker_transfer_mapping = {
-        'BUSD': 'USDT',
-        'LDBUSD': 'USDT',
-        'ETHW': 0,
-    }
+    PATH_COIN_MAPPING = os.path.join(PATH_ROOT, 'Config', 'CoinMapping.csv')
+    if os.path.isfile(PATH_COIN_MAPPING):
+        with open(PATH_COIN_MAPPING) as f:
+            l_lines = f.readlines()
+        ticker_transfer_mapping = {}
+        for line in l_lines:
+            line = line.strip()
+            if line == '':
+                continue
+            _key = line.split(',')[0]
+            _value = line.split(',')[1]
+            if _value.isdigit():
+                _value = float(_value)
+            ticker_transfer_mapping[_key] = _value
+    else:
+        ticker_transfer_mapping = {}
 
     total_balance_in_usdt = 0
     for _symbol, _data in d_balance.items():
