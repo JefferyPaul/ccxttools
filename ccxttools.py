@@ -457,9 +457,11 @@ def get_newest_price(output_file=None) -> dict:
     exchange = EXCHANGE_API_MAPPING['Spot'](API_CONFIG)
     _btc_tick = exchange.fetch_ticker('BTC/USDT')
     _eth_tick = exchange.fetch_ticker('ETH/USDT')
+    _bnb_tick = exchange.fetch_ticker('BNB/USDT')
     _data = {
         'BTC/USDT': _btc_tick['close'],
-        'ETH/USDT': _eth_tick['close']
+        'ETH/USDT': _eth_tick['close'],
+        'BNB/USDT': _bnb_tick['close'],
     }
 
     if output_file:
@@ -504,7 +506,10 @@ def cal_total_balance(d_balance, d_price, output_file=None):
         elif str(_symbol) + '/USDT' in d_price.keys():
             total_balance_in_usdt += _amount * d_price[_symbol + '/USDT']
         elif type(_symbol) is float or int:
-            total_balance_in_usdt += _amount * _symbol
+            try:
+                total_balance_in_usdt += _amount * _symbol
+            except :
+                print(_symbol, _amount, _symbol)
         else:
             print(f'error, unknown symbol, {_symbol}')
 
@@ -512,6 +517,7 @@ def cal_total_balance(d_balance, d_price, output_file=None):
         "USDT": total_balance_in_usdt,
         "BTC": total_balance_in_usdt / d_price['BTC/USDT'],
         "ETH": total_balance_in_usdt / d_price['ETH/USDT'],
+        "BNB": total_balance_in_usdt / d_price['BNB/USDT'],
     }
 
     if output_file:
