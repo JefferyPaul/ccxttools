@@ -363,17 +363,26 @@ class CcxtTools:
 
 # ===========================   获取账户 基础数据
 # [1] 获取账户资产
-def get_binance_accounts_balance(output_root=None) -> (dict, dict):
+def get_binance_accounts_balance(output_root=None, log_out=True) -> (dict, dict):
     """
 
     :param output_root:
     :return:
+    d_all_balance_exchange_coin
     { exchange:
         { CoinSymbol:
             {"free": ,
             "used": ,
             "total": }
     }}
+
+    d_all_balance_at_coin
+    {
+    CoinSymbol:
+        {"free": ,
+        "used": ,
+        "total": }
+    }
     """
     d_all_balance = {}
     for _name, _api in EXCHANGE_API_MAPPING.items():
@@ -381,7 +390,8 @@ def get_binance_accounts_balance(output_root=None) -> (dict, dict):
         exchange = _api(API_CONFIG)
 
         # [2] 查询账号资产情况
-        logger.info(f'Connected api, {_name}, fetch balance')
+        if log_out:
+            logger.info(f'Connected api, {_name}, fetch balance')
         _balance = exchange.fetch_balance()
         _balance_simple = {}
         for _k, _v in _balance.items():
@@ -406,18 +416,6 @@ def get_binance_accounts_balance(output_root=None) -> (dict, dict):
                         "total": 0
                     }
                 d_all_balance_exchange_coin[_exchange][_symbol][_k] += float(_amount)
-    #
-    # l_d_all_balance = list()
-    # for _exchange, _exchange_data in d_all_balance_exchange_coin.items():
-    #     for _symbol, _data in d_all_balance_exchange_coin[_exchange]:
-    #         l_d_all_balance.append({
-    #             "exchange": _exchange,
-    #             "symbol": _symbol,
-    #             "total": _data['total'],
-    #             "used": _data['used'],
-    #             "free": _data['free'],
-    #         })
-    # l_d_all_balance.sort(key=lambda x: (x["exchange", "symbol"]))
 
     #
     d_all_balance_at_coin = defaultdict(lambda: defaultdict(float))
@@ -532,7 +530,7 @@ def cal_total_balance(d_balance, d_price, output_file=None):
 
 
 # [4] 获取账户 合约持仓
-def get_all_accounts_contract_positions(output_root=None) -> Dict[str, List[SimplePosition]]:
+def get_all_accounts_contract_positions(output_root=None, log_out=True) -> Dict[str, List[SimplePosition]]:
     """
 
     :param output_root:
@@ -544,12 +542,14 @@ def get_all_accounts_contract_positions(output_root=None) -> Dict[str, List[Simp
         if _name == 'Spot':
             continue
         # [1] 连接交易所api
-        logger.info(f'Connecting api, {_name}')
+        if log_out:
+            logger.info(f'Connecting api, {_name}')
         # exchange = ccxt.binance(config)
         exchange = _api(API_CONFIG)
 
         # [2] 查询账号资产情况
-        logger.info(f'Connected api, {_name}, fetch position')
+        if log_out:
+            logger.info(f'Connected api, {_name}, fetch position')
         _positions: List[dict] = exchange.fetch_positions()
         d_all_positions_simple[_name] = CcxtTools.fetch_positions_all_to_simple(_positions, api_name=_name)
 
