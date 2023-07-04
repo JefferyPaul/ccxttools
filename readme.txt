@@ -30,6 +30,21 @@ cal_target_holding_coin.py
     - 赚钱，CoinM持币多于USDM对冲持仓：从CoinM转出至Spot，从Spot卖出。
     - 亏钱，CoinM持币少于USDM对冲持仓：从Spot买入币，转至CoinM。
 
+cal_close_position.py
+平仓/减仓
+    - 读取 \Config\Config.json
+        api信息
+        BaseCurrency
+    - 读取 \Config\CoinContractSpotMapping.csv
+        CoinM持仓币,Spot买卖转账标的,USDM对冲合约，用于在spot中下单卖出coin
+    - input 输入平仓比例
+    - [0] 平 coinM合约持仓
+    - [1] 转 CoinM保证金至Spot
+    - [2] 卖 Spot卖出[1]中转出的coin
+    - [3] 平 USDM合约持仓
+    - [4] 转 USDM转出保证金至Spot
+    - [5] 卖 Spot卖出[4]中的coin
+    - [6] 卖 Spot中的coin
 
 =====     =====     =====     =====     基础     =====     =====     =====     =====
 create_order.py
@@ -83,4 +98,13 @@ fetch_opening_orders.py
         -e 指定交易所，必须输入
         -s 指定标的，必须输入
         -o 指定输出路径
+
+
+
+=====     =====     =====     =====     基础账户参数设置     =====     =====     =====     =====
+USDM CoinM账户分别设置：
+Margin Mode：Cross
+Position Mode：One-way Mode
+Leverage：5X，可调
+
 

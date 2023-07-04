@@ -6,15 +6,18 @@ from typing import Dict, List
 from time import sleep
 from datetime import datetime
 
-PATH_ROOT = os.path.dirname(os.path.abspath(__file__))
+PATH_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(PATH_ROOT)
 
-from ccxttools import (logger, EXCHANGE_API_MAPPING, API_CONFIG, TransferOrder)
+from ccxttools import (logger_obj, EXCHANGE_API_MAPPING, read_api_config_file, TransferOrder)
 
 arg_parser = argparse.ArgumentParser()
 arg_parser.add_argument('-i', '--input')
 args = arg_parser.parse_args()
 PATH_INPUT = os.path.abspath(args.input)
+
+#
+API_CONFIG = read_api_config_file()
 
 
 def read_transfer_order_file() -> List[TransferOrder]:
@@ -47,17 +50,20 @@ if __name__ == '__main__':
     # 下单，记录订单状况
     l_trading_orders_info = []
     for _transfer_order in l_transfer_orders:
-        logger.info('transfer order, %s' % str(_transfer_order))
+        if _transfer_order.amount == 0:
+            logger_obj.info('amount=0, pass')
+            continue
+        logger_obj.info('transfer order, %s' % str(_transfer_order))
         # 检查 from to Account
         _error = False
         if _transfer_order.from_account not in ['Spot', 'USDM', 'CoinM']:
-            logger.error(f'Account Error,{_transfer_order.from_account},not (Spot, USDM, CoinM)')
+            logger_obj.error(f'Account Error,{_transfer_order.from_account},not (Spot, USDM, CoinM)')
             _error = True
         if _transfer_order.to_account not in ['Spot', 'USDM', 'CoinM']:
-            logger.error(f'Account Error,{_transfer_order.to_account},not (Spot, USDM, CoinM)')
+            logger_obj.error(f'Account Error,{_transfer_order.to_account},not (Spot, USDM, CoinM)')
             _error = True
         if 'Spot' not in [_transfer_order.to_account, _transfer_order.from_account]:
-            logger.error(f'No Spot Account in this Order')
+            logger_obj.error(f'No Spot Account in this Order')
             _error = True
         if _error:
             raise ValueError
@@ -74,7 +80,7 @@ if __name__ == '__main__':
             _rtn = exchange.transfer_out(code=_transfer_order.symbol, amount=_transfer_order.amount)
             print(_rtn)
         else:
-            logger.error(f'No Spot Account in this Order')
+            logger_obj.error(f'No Spot Account in this Order')
             continue
 
         # log

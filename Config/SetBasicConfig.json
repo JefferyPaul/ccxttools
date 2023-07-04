@@ -1,0 +1,22 @@
+{
+  "items": [
+    {
+      "exchange": "USDM",
+      "symbols": ["BTC/USDT:USDT", "ETH/USDT:USDT", "BNB/USDT:USDT"]
+    },
+    {
+      "exchange": "CoinM",
+      "symbols": ["BTC/USD:BTC", "ETH/USD:ETH"]
+    }
+  ],
+  "config": {
+    "margin_mode": "cross",
+    "leverage": 5,
+    "position_mode_use_hedge": false
+  },
+  "_备注": [
+    "margin_mode 可选: cross / isolated",
+    "leverage: 数字, 1-125",
+    "position_mode_use_hedge: true or false, 是否使用对冲(双向)模式. 若否则为 单向模式"
+  ]
+}

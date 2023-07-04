@@ -8,10 +8,10 @@ from typing import Dict, List
 from time import sleep
 from datetime import datetime
 
-PATH_ROOT = os.path.dirname(os.path.abspath(__file__))
+PATH_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(PATH_ROOT)
 
-from ccxttools import (logger, EXCHANGE_API_MAPPING, API_CONFIG, Order)
+from ccxttools import (logger_obj, EXCHANGE_API_MAPPING, read_api_config_file, Order)
 
 arg_parser = argparse.ArgumentParser()
 arg_parser.add_argument('-e', '--exchange', )
@@ -23,10 +23,13 @@ CHECKING_SYMBOL = args.symbol
 CHECKING_ID = args.id
 assert CHECKING_EXCHANGE in ['Spot', 'USDM', 'CoinM']
 
+#
+API_CONFIG = read_api_config_file()
+
 
 if __name__ == '__main__':
     exchange = EXCHANGE_API_MAPPING[CHECKING_EXCHANGE](API_CONFIG)
-    logger.info(f'Connected api, {CHECKING_EXCHANGE}, cancel orders, {CHECKING_SYMBOL}, {CHECKING_ID}')
+    logger_obj.info(f'Connected api, {CHECKING_EXCHANGE}, cancel orders, {CHECKING_SYMBOL}, {CHECKING_ID}')
     if CHECKING_ID:
         _o = exchange.cancel_order(id=CHECKING_ID, symbol=CHECKING_SYMBOL)
         pprint(_o, indent=4)

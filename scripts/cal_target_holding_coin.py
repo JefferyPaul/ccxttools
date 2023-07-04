@@ -11,15 +11,15 @@ from collections import defaultdict, Counter
 from datetime import datetime
 import json
 import logging
+import math
 
-PATH_ROOT = os.path.dirname(os.path.abspath(__file__))
+PATH_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(PATH_ROOT)
 
 from ccxttools import (
-    EXCHANGE_API_MAPPING, API_CONFIG, CcxtTools, SimplePosition,
-    Order, TransferOrder,
-    get_binance_accounts_balance, get_all_accounts_contract_positions,
-    logger,
+    EXCHANGE_API_MAPPING, CcxtTools, SimplePosition,  SimpleBalance, SimpleOrder,
+    Order, TransferOrder, ReversContract,
+    logger_obj, CoinContractSpotTickerMapping
 )
 from helper.tp_WarningBoard import run_warning_board
 
@@ -30,135 +30,50 @@ def gen_order(orders: list, reverse=False):
         _trading_spot_contract_amount = _data['TradingSpotContractAmount']
         _transfer_coin_symbol = _data['TransferCoinSymbol']
         _transfer_coin_amount = _data['TransferCoinAmount']
-        _order = Order(
-            api_name='Spot',
-            order_type='market',
-            symbol=_trading_spot_contract_symbol,
-            amount=_trading_spot_contract_amount
-        )
-        # logger.info(f'生成订单, {_trading_spot_contract_symbol}, {str(_trading_spot_contract_amount)}, {_transfer_coin_symbol}, {str(_transfer_coin_amount)}')
-        logger.info(f'生成交易订单, {str(_order)}')
-        if (_trading_spot_contract_amount > 0) == (not reverse):
-            # (_amount > 0) and (not reverse) ;(_amount < 0) and (reverse)
-            # Spot买入，转入CoinM  (亏钱)
-            l_output_string_buy.append(_order.to_output_string())
-            _transfer_order = TransferOrder(
-                symbol=_transfer_coin_symbol,
-                amount=abs(_transfer_coin_amount),
-                from_account='Spot',
-                to_account='CoinM',
-            )
-            logger.info(f'生成转账订单, {str(_transfer_order)}')
-            l_output_string_transfer_in.append(_transfer_order.to_output_string())
-        else:
-            # (_amount < 0) and (not reverse) ;(_amount > 0) and (reverse)
-            # CoinM转出至Spot，卖出  (赚钱)
-            l_output_string_sell.append(_order.to_output_string())
-            _transfer_order = TransferOrder(
-                symbol=_transfer_coin_symbol,
-                amount=abs(_transfer_coin_amount),
-                from_account='CoinM',
-                to_account='Spot',
-            )
-            logger.info(f'生成转账订单, {str(_transfer_order)}')
-            l_output_string_transfer_out.append(_transfer_order.to_output_string())
 
+        # 交易单
+        if _trading_spot_contract_amount != 0:
+            if (_trading_spot_contract_amount > 0) == (not reverse):
+                # Spot买入， (亏钱)
+                _order = Order(
+                    api_name='Spot',
+                    order_type='market',
+                    symbol=_trading_spot_contract_symbol,
+                    amount=_trading_spot_contract_amount
+                )
+                l_output_string_buy.append(_order.to_output_string())
+            else:
+                # 卖出  (赚钱)
+                _order = Order(
+                    api_name='Spot',
+                    order_type='market',
+                    symbol=_trading_spot_contract_symbol,
+                    amount=_trading_spot_contract_amount
+                )
+                l_output_string_sell.append(_order.to_output_string())
+            logger_obj.info(f'生成交易订单, {str(_order)}')
 
-class CoinContractSpotTickerMapping:
-    """
-    提供转换方法
-    检查是否有相同项目 
-    """
-    def __init__(self, path_mapping_file):
-        self._mapping = []
-        self._read_file(path_mapping_file)
-        self._check()
-
-    @property
-    def mapping(self):
-        return self._mapping
-
-    def _read_file(self, path):
-        with open(path, encoding='utf-8') as f:
-            l_lines = f.readlines()
-        assert len(l_lines) > 1
-        for line in l_lines[1:]:
-            line = line.strip()
-            if line == '':
-                continue
-            line_split = line.split(',')
-            self._mapping.append({
-                "coin": line_split[0],
-                "spot": line_split[1],
-                "contract": line_split[2],
-            })
-
-    def _check(self) -> Dict[str, Counter]:
-        # 检查是否有重复项
-        d_count = {
-            "coin": Counter([_['coin'] for _ in self._mapping]),
-            "spot": Counter([_['spot'] for _ in self._mapping]),
-            "contract": Counter([_['contract'] for _ in self._mapping])
-        }
-        _error = False
-        for _name, _counter in d_count.items():
-            for _symbol, _count in _counter.items():
-                if _count == 1:
-                    continue
-                else:
-                    logger.error(f'Mapping文件存在重复项, {_name}, {_symbol}')
-                    _error = True
-        if _error:
-            raise Exception
-        return d_count
-
-    def coin_to_contract(self, coin):
-        l_item = [_ for _ in self.mapping if _['coin'] == coin]
-        if len(l_item) == 0:
-            logger.warning(f'Mapping not find spot = "{coin}"')
-            return None
-        else:
-            return l_item[0]['contract']
-
-    def coin_to_spot(self, coin):
-        l_item = [_ for _ in self.mapping if _['coin'] == coin]
-        if len(l_item) == 0:
-            logger.warning(f'Mapping not find spot = "{coin}"')
-            return None
-        else:
-            return l_item[0]['spot']
-
-    def contract_to_coin(self, contract):
-        l_item = [_ for _ in self.mapping if _['contract'] == contract]
-        if len(l_item) == 0:
-            logger.warning(f'Mapping not find contract = "{contract}"')
-            return None
-        else:
-            return l_item[0]['coin']
-
-    def contract_to_spot(self, contract):
-        l_item = [_ for _ in self.mapping if _['contract'] == contract]
-        if len(l_item) == 0:
-            logger.warning(f'Mapping not find contract = "{contract}"')
-            return None
-        else:
-            return l_item[0]['spot']
-
-    def spot_to_coin(self, spot):
-        l_item = [_ for _ in self.mapping if _['spot'] == spot]
-        if len(l_item) == 0:
-            logger.warning(f'Mapping not find spot = "{spot}"')
-            return None
-        else:
-            return l_item[0]['coin']
-
-    def spot_to_contract(self, spot):
-        l_item = [_ for _ in self.mapping if _['spot'] == spot]
-        if len(l_item) == 0:
-            logger.warning(f'Mapping not find spot = "{spot}"')
-            return None
-        else:
-            return l_item[0]['contract']
+        # 转账单
+        if _transfer_coin_amount != 0:
+            if _transfer_coin_amount > 0:
+                # 转入CoinM
+                _transfer_order = TransferOrder(
+                    symbol=_transfer_coin_symbol,
+                    amount=abs(_transfer_coin_amount),
+                    from_account='Spot',
+                    to_account='CoinM',
+                )
+                l_output_string_transfer_in.append(_transfer_order.to_output_string())
+            else:
+                # CoinM转出至Spot
+                _transfer_order = TransferOrder(
+                    symbol=_transfer_coin_symbol,
+                    amount=abs(_transfer_coin_amount),
+                    from_account='CoinM',
+                    to_account='Spot',
+                )
+                l_output_string_transfer_out.append(_transfer_order.to_output_string())
+            logger_obj.info(f'生成转账订单, {str(_transfer_order)}')
 
 
 class AccountsHolding:
@@ -187,17 +102,17 @@ class AccountsHolding:
         return self._usdm_contract
 
     def fetch_data(self):
-        _d_all_balance_exchange_coin, _d_all_balance_coin = get_binance_accounts_balance()
-        _d_all_positions = get_all_accounts_contract_positions()
+        _d_all_balance_exchange_coin: Dict[str, List[SimpleBalance]] = ccxt_obj.get_accounts_balance()
+        _d_all_positions: Dict[str, List[SimplePosition]] = ccxt_obj.get_accounts_contract_positions()
         # spot 数币持仓. {symbol: amount}
         self._spot_balance = {
-            _symbol: float(_symbol_data['total'])
-            for _symbol, _symbol_data in _d_all_balance_exchange_coin['Spot'].items()
+            _balance.symbol: float(_balance.total)
+            for _balance in _d_all_balance_exchange_coin.get('Spot')
         }
         # coinM 保证金数币持仓. {symbol: amount}
         self._coinm_balance = {
-            _symbol: float(_symbol_data['total'])
-            for _symbol, _symbol_data in _d_all_balance_exchange_coin['CoinM'].items()
+            _balance.symbol: float(_balance.total)
+            for _balance in _d_all_balance_exchange_coin.get('CoinM')
         }
         # USDM 对冲合约持仓. {symbol: amount}
         self._usdm_contract = {
@@ -229,7 +144,7 @@ def print_dict_log(name, dict_data, output_file=None):
     for _k, _v in dict_data.items():
         _ = f'{name},{str(_k)},{str(_v)}'
         _l_output_string.append(_)
-        logger.info(_)
+        logger_obj.info(_)
 
     if output_file:
         if _l_output_string:
@@ -240,13 +155,16 @@ def print_dict_log(name, dict_data, output_file=None):
 if __name__ == '__main__':
     # [0] 读取 config,  BaseCurrency,需要剔除
     AMOUNT_ROUNDING_SIZE = 4
-    TRANSFER_RATIO = 0.999
-    PATH_CONFIG = os.path.join(PATH_ROOT, 'Config', 'Config.json')
+    TRANSFER_RATIO = 0.99
+    PATH_CONFIG = os.path.join(PATH_ROOT, '../Config', 'Config.json')
     d_config = json.loads(open(PATH_CONFIG, encoding='utf-8').read())
     BASE_CURRENCY = d_config['BaseCurrency']
+
+    ccxt_obj = CcxtTools()
+
     # 读取mapping
     # [{ "coin": "", "spot": "", "contract": ""}]
-    path_contracts_mapping = os.path.join(PATH_ROOT, 'Config', 'CoinContractSpotMapping.csv')
+    path_contracts_mapping = os.path.join(PATH_ROOT, '../Config', 'CoinContractSpotMapping.csv')
     coin_contract_spot_mapping = CoinContractSpotTickerMapping(path_contracts_mapping)
     # BASE_CURRENCY_USDM_CONTRACT,需要剔除
     if BASE_CURRENCY in [_['coin'] for _ in coin_contract_spot_mapping.mapping]:
@@ -260,7 +178,7 @@ if __name__ == '__main__':
     PATH_CAL_LOG_FILE = os.path.join(PATH_OUTPUT_ROOT, 'calculate_log_%s.csv' % datetime.now().strftime('%Y%m%d_%H%M%S'))
 
     # [1] 获取最新 持仓和账户情况
-    accounts_holding_obj = AccountsHolding(logger)
+    accounts_holding_obj = AccountsHolding(logger_obj)
     print('\n全部持仓：')
     print_dict_log("Spot持仓", accounts_holding_obj.SpotBalance, PATH_CAL_LOG_FILE,) 
     print_dict_log("CoinM持仓", accounts_holding_obj.CoinMBalance, PATH_CAL_LOG_FILE,) 
@@ -311,14 +229,15 @@ if __name__ == '__main__':
         d_trading_order[_spot_ticker] -= _amount
 
     # amount rounding
-    d_trading_order = {
-        _k: round(_v, AMOUNT_ROUNDING_SIZE)
-        for _k, _v in d_trading_order.items()
-    }
-    d_transfer_order = {
-        _k: round(_v * TRANSFER_RATIO, AMOUNT_ROUNDING_SIZE)
-        for _k, _v in d_transfer_order.items()
-    }
+    # d_trading_order = {
+    #     _k: round(_v, AMOUNT_ROUNDING_SIZE)
+    #     for _k, _v in d_trading_order.items()
+    # }
+    # # 转账数量 * 0.999，保留（考虑手续费）
+    # d_transfer_order = {
+    #     _k: round(_v * TRANSFER_RATIO, AMOUNT_ROUNDING_SIZE)
+    #     for _k, _v in d_transfer_order.items()
+    # }
             
     # 下单占比
     d_trading_order_percentage = defaultdict(float)
@@ -340,9 +259,20 @@ if __name__ == '__main__':
     l_reverse_order = []
     for _spot_ticker, _trading_amount in d_trading_order.items():
         _transfer_amount = d_transfer_order[_spot_ticker]
-        if _trading_amount == 0:
-            continue
-        if _spot_ticker[0] != '-':
+        if _transfer_amount > 0:
+            # spot 转至 conim。 少转进。
+            _transfer_amount = math.floor(
+                _transfer_amount * TRANSFER_RATIO * (10 ** AMOUNT_ROUNDING_SIZE)) / (10 ** AMOUNT_ROUNDING_SIZE)
+        else:
+            # 多转出
+            _transfer_amount = math.ceil(
+                _transfer_amount / TRANSFER_RATIO * (10 ** AMOUNT_ROUNDING_SIZE)) / (10 ** AMOUNT_ROUNDING_SIZE)
+
+        if not ReversContract.is_revers_contract(_spot_ticker):
+            if _trading_amount > 0:
+                _trading_amount = math.ceil(_trading_amount * (10 ** AMOUNT_ROUNDING_SIZE)) / (10 ** AMOUNT_ROUNDING_SIZE)
+            else:
+                _trading_amount = math.floor(_trading_amount * (10 ** AMOUNT_ROUNDING_SIZE)) / (10 ** AMOUNT_ROUNDING_SIZE)
             l_order.append({
                 "TradingSpotContractSymbol": _spot_ticker,
                 "TradingSpotContractAmount": _trading_amount,
@@ -351,10 +281,14 @@ if __name__ == '__main__':
             })
         else:
             # 反向合约处理
-            exchange = EXCHANGE_API_MAPPING['Spot'](API_CONFIG)
-            _new_spot_ticker = _spot_ticker[1:]
+            exchange = EXCHANGE_API_MAPPING['Spot'](ccxt_obj.API_CONFIG)
+            _new_spot_ticker = ReversContract.gen_normal_contract(symbol=_spot_ticker)
             _price = exchange.fetch_ticker(_new_spot_ticker)['close']
-            _new_amount = round(-_trading_amount / _price, 4)
+            _new_amount = ReversContract.gen_normal_trading_amount(_spot_ticker, _trading_amount, ccxt_obj.API_CONFIG)
+            if _new_amount < 0:
+                _new_amount = math.ceil(_new_amount * (10 ** AMOUNT_ROUNDING_SIZE)) / (10 ** AMOUNT_ROUNDING_SIZE)
+            else:
+                _new_amount = math.floor(_new_amount * (10 ** AMOUNT_ROUNDING_SIZE)) / (10 ** AMOUNT_ROUNDING_SIZE)
             l_reverse_order.append({
                 "TradingSpotContractSymbol": _new_spot_ticker,
                 "TradingSpotContractAmount": _new_amount,
@@ -362,7 +296,7 @@ if __name__ == '__main__':
                 "TransferCoinAmount": _transfer_amount,
             })
             print("\n")
-            logger.info(
+            logger_obj.info(
                 f'反向合约,{_spot_ticker},{_trading_amount},'
                 f'新合约{_new_spot_ticker},最新价格{str(_price)},下单数量{str(_new_amount)}')
 
